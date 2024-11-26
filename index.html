@@ -1,0 +1,225 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Control de Deudas</title>
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .form-group {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .form-group input {
+            margin: 5px;
+            padding: 5px;
+        }
+        .deudas-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .deudas-table th, .deudas-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .deudas-table th {
+            background-color: #f4f4f4;
+        }
+        .total {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-top: 20px;
+        }
+        .status-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        .btn {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .payment-form {
+            display: none;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Control de Deudas</h1>
+
+        <div id="statusMessage" class="status-message"></div>
+
+        <div class="form-group">
+            <h3>Agregar Deuda</h3>
+            <input type="text" id="descripcion" placeholder="Descripción" required>
+            <input type="number" id="monto" placeholder="Monto" required>
+            <button onclick="agregarDeuda()" class="btn btn-primary">Agregar</button>
+        </div>
+
+        <table class="deudas-table">
+            <thead>
+                <tr>
+                    <th>Descripción</th>
+                    <th>Monto Original</th>
+                    <th>Pagado</th>
+                    <th>Restante</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="deudasTableBody">
+            </tbody>
+        </table>
+
+        <div class="total">
+            Total Restante: $<span id="totalDeudas">0</span>
+        </div>
+    </div>
+
+    <script>
+        let deudas = [];
+
+        // Cargar deudas desde localStorage al iniciar
+        window.onload = function () {
+            const deudasGuardadas = localStorage.getItem('deudas');
+            if (deudasGuardadas) {
+                deudas = JSON.parse(deudasGuardadas);
+                actualizarTabla();
+            }
+        };
+
+        function guardarDeudas() {
+            localStorage.setItem('deudas', JSON.stringify(deudas));
+        }
+
+        function mostrarMensaje(mensaje, tipo) {
+            const statusMessage = document.getElementById('statusMessage');
+            statusMessage.textContent = mensaje;
+            statusMessage.className = 'status-message ' + tipo;
+            setTimeout(() => {
+                statusMessage.className = 'status-message';
+                statusMessage.textContent = '';
+            }, 3000);
+        }
+
+        function agregarDeuda() {
+            const descripcion = document.getElementById('descripcion').value;
+            const monto = parseFloat(document.getElementById('monto').value);
+
+            if (!descripcion || isNaN(monto) || monto <= 0) {
+                mostrarMensaje('Por favor, ingrese datos válidos', 'error');
+                return;
+            }
+
+            const deuda = {
+                id: Date.now(),
+                descripcion: descripcion,
+                montoOriginal: monto,
+                pagado: 0,
+                restante: monto
+            };
+
+            deudas.push(deuda);
+            actualizarTabla();
+            guardarDeudas();
+            mostrarMensaje('Deuda agregada correctamente', 'success');
+
+            // Limpiar campos
+            document.getElementById('descripcion').value = '';
+            document.getElementById('monto').value = '';
+        }
+
+        function mostrarFormularioPago(id) {
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            const paymentForm = row.querySelector('.payment-form');
+            paymentForm.style.display = paymentForm.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function realizarPago(id) {
+            const deuda = deudas.find(d => d.id === id);
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            const montoPago = parseFloat(row.querySelector('.monto-pago').value);
+
+            if (isNaN(montoPago) || montoPago <= 0 || montoPago > deuda.restante) {
+                mostrarMensaje('Monto de pago inválido', 'error');
+                return;
+            }
+
+            deuda.pagado += montoPago;
+            deuda.restante -= montoPago;
+
+            actualizarTabla();
+            guardarDeudas();
+            mostrarMensaje('Pago registrado correctamente', 'success');
+        }
+
+        function eliminarDeuda(id) {
+            deudas = deudas.filter(d => d.id !== id);
+            actualizarTabla();
+            guardarDeudas();
+            mostrarMensaje('Deuda eliminada correctamente', 'success');
+        }
+
+        function actualizarTabla() {
+            const tbody = document.getElementById('deudasTableBody');
+            tbody.innerHTML = '';
+            let total = 0;
+
+            deudas.forEach(deuda => {
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-id', deuda.id);
+                
+                tr.innerHTML = `
+                    <td>${deuda.descripcion}</td>
+                    <td>$${deuda.montoOriginal.toFixed(2)}</td>
+                    <td>$${deuda.pagado.toFixed(2)}</td>
+                    <td>$${deuda.restante.toFixed(2)}</td>
+                    <td>
+                        <button onclick="mostrarFormularioPago(${deuda.id})" class="btn btn-primary">Pagar</button>
+                        <button onclick="eliminarDeuda(${deuda.id})" class="btn btn-danger">Eliminar</button>
+                        <div class="payment-form" style="display: none;">
+                            <input type="number" class="monto-pago" placeholder="Monto a pagar">
+                            <button onclick="realizarPago(${deuda.id})" class="btn btn-primary">Confirmar Pago</button>
+                        </div>
+                    </td>
+                `;
+                
+                tbody.appendChild(tr);
+                total += deuda.restante;
+            });
+
+            document.getElementById('totalDeudas').textContent = total.toFixed(2);
+        }
+    </script>
+</body>
+</html>
